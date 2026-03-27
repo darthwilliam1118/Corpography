@@ -8,7 +8,8 @@
       "Bash(python -m pytest)",
       "Bash(cmd.exe /c build.bat)",
       "Bash(pyinstaller --onefile --windowed --name Corpography --paths src src/main.py)",
-      "Bash(ls *.spec)"
+      "Bash(ls *.spec)",
+      "Bash(python -m pytest tests/test_capture.py -v)"
     ]
   }
 }
