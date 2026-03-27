@@ -13,7 +13,23 @@
       "Bash(python -c \"import mediapipe as mp; print\\(dir\\(mp.solutions.pose\\)\\)\")",
       "Bash(python -c \"import mediapipe; print\\(mediapipe.__version__\\); print\\(dir\\(mediapipe\\)\\)\")",
       "Bash(python -c \":*)",
-      "Bash(python -m pytest tests/test_pose.py -v)"
+      "Bash(python -m pytest tests/test_pose.py -v)",
+      "Bash(python *)",
+      "Bash(pip install *)",
+      "Bash(pip show *)",
+      "Bash(source *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(dir *)",
+      "Bash(type *)",
+      "Bash(wc -l /c/Users/darth/Code/Corpography/src/shapes/*.py)",
+      "Bash(python3 -c \"import mediapipe as mp; conns = mp.tasks.vision.PoseLandmarksConnections.POSE_LANDMARKS; print\\([\\(c.start, c.end\\) for c in conns]\\)\")",
+      "Bash(venv/Scripts/python -m pytest tests/test_templates.py -v)",
+      "Bash(venv/Scripts/python -m pytest tests/test_editor_model.py -v)",
+      "Bash(venv/Scripts/python -m pytest --cov=src -v)",
+      "Bash(venv/Scripts/python -m pytest tests/ -q)"
     ]
   }
 }

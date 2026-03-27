@@ -1,0 +1,72 @@
+{
+  "shape_id": "X",
+  "display_name": "Letter X",
+  "difficulty": 1,
+  "landmarks": {
+    "NOSE": {
+      "x": 0.5,
+      "y": 0.2169,
+      "weight": 1.0
+    },
+    "LEFT_SHOULDER": {
+      "x": 0.4298,
+      "y": 0.3312,
+      "weight": 1.0
+    },
+    "RIGHT_SHOULDER": {
+      "x": 0.5851,
+      "y": 0.3302,
+      "weight": 1.0
+    },
+    "LEFT_ELBOW": {
+      "x": 0.3891,
+      "y": 0.2533,
+      "weight": 1.0
+    },
+    "RIGHT_ELBOW": {
+      "x": 0.6311,
+      "y": 0.2502,
+      "weight": 1.0
+    },
+    "LEFT_WRIST": {
+      "x": 0.3279,
+      "y": 0.1458,
+      "weight": 1.0
+    },
+    "RIGHT_WRIST": {
+      "x": 0.7104,
+      "y": 0.1365,
+      "weight": 1.0
+    },
+    "LEFT_HIP": {
+      "x": 0.4362,
+      "y": 0.5396,
+      "weight": 1.0
+    },
+    "RIGHT_HIP": {
+      "x": 0.5862,
+      "y": 0.5375,
+      "weight": 1.0
+    },
+    "LEFT_KNEE": {
+      "x": 0.3074,
+      "y": 0.745,
+      "weight": 1.0
+    },
+    "RIGHT_KNEE": {
+      "x": 0.7362,
+      "y": 0.7762,
+      "weight": 1.0
+    },
+    "LEFT_ANKLE": {
+      "x": 0.2213,
+      "y": 0.8969,
+      "weight": 1.0
+    },
+    "RIGHT_ANKLE": {
+      "x": 0.8287,
+      "y": 0.9198,
+      "weight": 1.0
+    }
+  }
+}

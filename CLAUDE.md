@@ -63,10 +63,16 @@ Corpography/
 ├── capture.py                # OpenCV webcam capture
 ├── pose.py                   # MediaPipe wrapper, landmark extraction
 ├── scoring.py                # Normalization + similarity scoring
-├── shapes/
-│   ├── latin.py              # Letter landmark templates
-│   ├── greek.py
-│   └── geometric.py          # Star, triangle, X, etc.
+├── editor.py                 # ← editor entry point  
+├── core/
+│   ├── scoring.py            # ← shared scoring logic
+│   ├── pose.py               # ← shared MediaPipe wrapper
+│   └── templates.py          # ← shared load/save JSON templates├── shapes/
+└── templates/
+    └── latin/
+        ├── A.json            # Scoring template files for each letter
+        ├── B.json            # These are created and edited by the editor.py
+        └── ...
 ├── ui/
 │   ├── display.py            # Pygame rendering, overlays
 │   └── hud.py                # Score, timer, shape display
@@ -110,6 +116,7 @@ Game UI: pygame-ce
 - Target: self-contained Windows .exe via PyInstaller
 - All assets must be loaded using resource paths compatible with PyInstaller bundles
 - Use a helper function for asset paths that handles both dev and bundled contexts
+- Build both main.py and editor.py as separate exes from the same codebase — Corpography.exe and CorpagraphyEditor.exe — bundled in the same GitHub Release zip. The editor is a dev/content tool but ships with the package so anyone can author new template packs.
 
 ## Phase 0: Project Scaffold
 "Set up the project structure, virtual environment, requirements.txt, use existing GitHub repo with .gitignore, and a PyInstaller build script. The app should be a Pygame window that says Hello World and exits cleanly. Verify the PyInstaller exe builds and runs."
@@ -139,10 +146,69 @@ Visibility debug info
 show debug panel when starting with '--debug' option
 "Body not fully visible" warning when key landmarks are low
 
-## Phase 3: Shape Template System + Static Scoring
-"Build the shape template data structure and scoring module. Implement normalization (bounding box scale + center). Load 3 test shapes: I, T, X. Display the target shape as a skeleton diagram on screen. Compute and display a live 0–100 score as the player poses. No game logic yet — just continuous scoring."
-Why here: this is the hardest algorithmic piece. Isolating it as its own phase means you can tune the scoring math interactively before game logic complicates things.
-Deliverables:
+## Phase 3a: Shape Template Editor
+
+This is essentially a template editor — a separate utility app, not part of the game itself. Think of it like a level editor that ships alongside a game. The workflow would be:
+
+Launch the editor
+Select a letter/shape to author, prompt user to press the key (e.g. "A")
+A canvas displays with the letter rendered large in the background as a visual guide
+A default skeleton is shown with draggable joint points
+Have an optional "record from pose" button that captures the current MediaPipe skeleton from the webcam and loads those coordinates as a starting point, which you then manually refine.
+
+You drag joints to where they should be for a perfect match of that letter
+Some joints you mark as "don't care" — irrelevant to the shape (e.g. for the letter "I", the exact elbow position doesn't matter, only the overall vertical alignment)
+Hit "save" control → writes a JSON template file for that letter
+Repeat for each letter/shape, show the prompt again
+
+The "don't care" joints are important — they let you weight which landmarks actually matter for scoring each shape, rather than penalizing players for irrelevant joint positions.
+
+### Template File Format
+JSON is the right choice. Something like:
+json{
+  "shape_id": "A",
+  "display_name": "Letter A",
+  "difficulty": 2,
+  "landmarks": {
+    "LEFT_WRIST":    {"x": 0.15, "y": 0.1,  "weight": 1.0},
+    "RIGHT_WRIST":   {"x": 0.85, "y": 0.1,  "weight": 1.0},
+    "LEFT_ELBOW":    {"x": 0.25, "y": 0.35, "weight": 0.5},
+    "RIGHT_ELBOW":   {"x": 0.75, "y": 0.35, "weight": 0.5},
+    "LEFT_SHOULDER": {"x": 0.35, "y": 0.55, "weight": 0.8},
+    "RIGHT_SHOULDER":{"x": 0.65, "y": 0.55, "weight": 0.8},
+    "LEFT_HIP":      {"x": 0.4,  "y": 0.75, "weight": 0.3},
+    "RIGHT_HIP":     {"x": 0.6,  "y": 0.75, "weight": 0.3}
+  }
+}
+Coordinates are normalized 0–1 so they're resolution-independent. The weight field is how much each joint contributes to the score — 1.0 means it matters a lot, 0.0 means ignore it entirely. You can set weights in the editor with a slider or by clicking a joint to toggle its importance.
+
+### Components of the template editor:
+
+Separate pygame app (editor.py)
+Letter background rendering
+Draggable skeleton joints
+Weight toggle per joint
+Save/load JSON templates
+Ship with maybe 3 test letters to author first
+
+### Clean dependency structure 
+scoring.py          ← shared, no dependencies on game or editor
+    ↑                   (pure functions: normalize, compare, weighted_score)
+    ├── game.py     ← imports scoring, runs game loop
+    └── editor.py   ← imports scoring, shows live score while you pose
+
+## Phase 3b: Live scoring against templates
+"Build the live scoring module using the shape template structure.
+Build this into the template editor. Have a button for "Live Scoring" when button clicked overlay live camera over the skeleton.
+. Display the target shape as a skeleton diagram on screen. Compute and display a live 0–100 score as the player poses. No game logic yet — just continuous scoring."
+make the score in large font (72 pt or more)
+pressing ESC stops the live scoring / camera view
+Load templates from JSON
+Normalize player landmarks against template
+Weighted scoring
+Live score display
+
+### Deliverables:
 
 shapes/ module with template format established
 scoring.py with normalization + similarity metric

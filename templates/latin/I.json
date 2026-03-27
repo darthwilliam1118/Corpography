@@ -1,0 +1,72 @@
+{
+  "shape_id": "I",
+  "display_name": "Letter I",
+  "difficulty": 2,
+  "landmarks": {
+    "NOSE": {
+      "x": 0.5,
+      "y": 0.12,
+      "weight": 1.0
+    },
+    "LEFT_SHOULDER": {
+      "x": 0.35,
+      "y": 0.35,
+      "weight": 1.0
+    },
+    "RIGHT_SHOULDER": {
+      "x": 0.65,
+      "y": 0.35,
+      "weight": 1.0
+    },
+    "LEFT_ELBOW": {
+      "x": 0.3647,
+      "y": 0.5325,
+      "weight": 1.0
+    },
+    "RIGHT_ELBOW": {
+      "x": 0.6374,
+      "y": 0.5429,
+      "weight": 1.0
+    },
+    "LEFT_WRIST": {
+      "x": 0.3821,
+      "y": 0.726,
+      "weight": 1.0
+    },
+    "RIGHT_WRIST": {
+      "x": 0.6179,
+      "y": 0.7219,
+      "weight": 1.0
+    },
+    "LEFT_HIP": {
+      "x": 0.4,
+      "y": 0.65,
+      "weight": 1.0
+    },
+    "RIGHT_HIP": {
+      "x": 0.6,
+      "y": 0.65,
+      "weight": 1.0
+    },
+    "LEFT_KNEE": {
+      "x": 0.4,
+      "y": 0.82,
+      "weight": 1.0
+    },
+    "RIGHT_KNEE": {
+      "x": 0.6,
+      "y": 0.82,
+      "weight": 1.0
+    },
+    "LEFT_ANKLE": {
+      "x": 0.4,
+      "y": 0.95,
+      "weight": 1.0
+    },
+    "RIGHT_ANKLE": {
+      "x": 0.6,
+      "y": 0.95,
+      "weight": 1.0
+    }
+  }
+}
