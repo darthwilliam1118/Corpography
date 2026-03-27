@@ -136,7 +136,7 @@ Deliverables:
 
 Skeleton drawn on live feed
 Visibility debug info
-show debug into when starting with 'training-mode' option
+show debug panel when starting with '--debug' option
 "Body not fully visible" warning when key landmarks are low
 
 ## Phase 3: Shape Template System + Static Scoring

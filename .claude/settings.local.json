@@ -9,7 +9,11 @@
       "Bash(cmd.exe /c build.bat)",
       "Bash(pyinstaller --onefile --windowed --name Corpography --paths src src/main.py)",
       "Bash(ls *.spec)",
-      "Bash(python -m pytest tests/test_capture.py -v)"
+      "Bash(python -m pytest tests/test_capture.py -v)",
+      "Bash(python -c \"import mediapipe as mp; print\\(dir\\(mp.solutions.pose\\)\\)\")",
+      "Bash(python -c \"import mediapipe; print\\(mediapipe.__version__\\); print\\(dir\\(mediapipe\\)\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest tests/test_pose.py -v)"
     ]
   }
 }

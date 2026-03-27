@@ -7,5 +7,6 @@ def resource_path(relative_path: str) -> str:
     if hasattr(sys, '_MEIPASS'):
         base = sys._MEIPASS
     else:
-        base = os.path.dirname(os.path.abspath(__file__))
+        # utils.py lives in src/; assets are at the project root one level up
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, relative_path)
