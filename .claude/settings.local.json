@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pyinstaller --version)",
+      "Bash(pip install:*)",
+      "Bash(pytest --cov=src)",
+      "Bash(python -m pytest --cov=src)",
+      "Bash(python -m pytest)",
+      "Bash(cmd.exe /c build.bat)",
+      "Bash(pyinstaller --onefile --windowed --name Corpography --paths src src/main.py)",
+      "Bash(ls *.spec)"
+    ]
+  }
+}
