@@ -156,6 +156,54 @@ def test_apply_landmarks_clamps_values(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# apply_landmarks_with_visibility
+# ---------------------------------------------------------------------------
+
+def test_apply_with_visibility_updates_visible_joints(tmp_path):
+    model = _make_model(tmp_path)
+    lms = _fake_landmarks()
+    # All landmarks in _fake_landmarks have visibility=0.9 — above any sane threshold
+    old_nose_y = model.template.landmarks["NOSE"].y
+    model.apply_landmarks_with_visibility(lms, visibility_threshold=0.6)
+    assert abs(model.template.landmarks["NOSE"].x - 0.50) < 1e-6
+    assert abs(model.template.landmarks["NOSE"].y - 0.10) < 1e-6
+    assert model.template.landmarks["NOSE"].weight == 1.0
+    assert model.template.landmarks["LEFT_SHOULDER"].weight == 1.0
+
+
+def test_apply_with_visibility_zeros_invisible_joints(tmp_path):
+    model = _make_model(tmp_path)
+    lms = _fake_landmarks()
+    lms = list(lms)
+    # Make LEFT_ANKLE invisible
+    lms[27] = SimpleNamespace(x=0.99, y=0.99, visibility=0.1)
+    orig_x = model.template.landmarks["LEFT_ANKLE"].x
+    orig_y = model.template.landmarks["LEFT_ANKLE"].y
+    model.apply_landmarks_with_visibility(lms, visibility_threshold=0.6)
+    # Position must be unchanged
+    assert abs(model.template.landmarks["LEFT_ANKLE"].x - orig_x) < 1e-6
+    assert abs(model.template.landmarks["LEFT_ANKLE"].y - orig_y) < 1e-6
+    # Weight must be zeroed
+    assert model.template.landmarks["LEFT_ANKLE"].weight == 0.0
+
+
+def test_apply_with_visibility_mixed(tmp_path):
+    model = _make_model(tmp_path)
+    lms = _fake_landmarks()
+    lms = list(lms)
+    # Make RIGHT_WRIST invisible, keep others visible
+    lms[16] = SimpleNamespace(x=0.99, y=0.99, visibility=0.2)
+    orig_wrist_x = model.template.landmarks["RIGHT_WRIST"].x
+    model.apply_landmarks_with_visibility(lms, visibility_threshold=0.6)
+    # RIGHT_WRIST position unchanged, weight zeroed
+    assert abs(model.template.landmarks["RIGHT_WRIST"].x - orig_wrist_x) < 1e-6
+    assert model.template.landmarks["RIGHT_WRIST"].weight == 0.0
+    # NOSE visible → updated, weight 1.0
+    assert abs(model.template.landmarks["NOSE"].x - 0.50) < 1e-6
+    assert model.template.landmarks["NOSE"].weight == 1.0
+
+
+# ---------------------------------------------------------------------------
 # Hit testing
 # ---------------------------------------------------------------------------
 

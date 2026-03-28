@@ -1,0 +1,72 @@
+{
+  "shape_id": "T",
+  "display_name": "Letter T",
+  "difficulty": 2,
+  "landmarks": {
+    "NOSE": {
+      "x": 0.5252,
+      "y": 0.2124,
+      "weight": 0.3
+    },
+    "LEFT_SHOULDER": {
+      "x": 0.5742,
+      "y": 0.3033,
+      "weight": 1.0
+    },
+    "RIGHT_SHOULDER": {
+      "x": 0.4612,
+      "y": 0.3041,
+      "weight": 1.0
+    },
+    "LEFT_ELBOW": {
+      "x": 0.6619,
+      "y": 0.3201,
+      "weight": 1.0
+    },
+    "RIGHT_ELBOW": {
+      "x": 0.3638,
+      "y": 0.3133,
+      "weight": 1.0
+    },
+    "LEFT_WRIST": {
+      "x": 0.768,
+      "y": 0.3173,
+      "weight": 1.0
+    },
+    "RIGHT_WRIST": {
+      "x": 0.2719,
+      "y": 0.3138,
+      "weight": 1.0
+    },
+    "LEFT_HIP": {
+      "x": 0.5468,
+      "y": 0.5699,
+      "weight": 0.8
+    },
+    "RIGHT_HIP": {
+      "x": 0.4888,
+      "y": 0.566,
+      "weight": 0.8
+    },
+    "LEFT_KNEE": {
+      "x": 0.5431,
+      "y": 0.765,
+      "weight": 0.3
+    },
+    "RIGHT_KNEE": {
+      "x": 0.4866,
+      "y": 0.7616,
+      "weight": 0.3
+    },
+    "LEFT_ANKLE": {
+      "x": 0.5339,
+      "y": 0.9351,
+      "weight": 0.3
+    },
+    "RIGHT_ANKLE": {
+      "x": 0.5028,
+      "y": 0.9374,
+      "weight": 0.3
+    }
+  }
+}

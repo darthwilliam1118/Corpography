@@ -107,6 +107,29 @@ class EditorModel:
                 self.template.landmarks[name].x = max(0.0, min(1.0, float(lm.x)))
                 self.template.landmarks[name].y = max(0.0, min(1.0, float(lm.y)))
 
+    def apply_landmarks_with_visibility(
+        self, landmarks: list, visibility_threshold: float
+    ) -> None:
+        """
+        Update template from MediaPipe landmarks, respecting per-landmark visibility.
+
+        - Visible (visibility >= threshold): update position, set weight = 1.0
+        - Not visible (visibility < threshold): leave position unchanged, set weight = 0.0
+        """
+        for idx, name in MP_INDEX_TO_NAME.items():
+            if idx >= len(landmarks):
+                continue
+            lm = landmarks[idx]
+            if name not in self.template.landmarks:
+                continue
+            entry = self.template.landmarks[name]
+            if lm.visibility >= visibility_threshold:
+                entry.x = max(0.0, min(1.0, float(lm.x)))
+                entry.y = max(0.0, min(1.0, float(lm.y)))
+                entry.weight = 1.0
+            else:
+                entry.weight = 0.0  # position unchanged
+
     # ------------------------------------------------------------------
     # Hit testing
     # ------------------------------------------------------------------

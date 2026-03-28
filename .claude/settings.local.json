@@ -29,7 +29,11 @@
       "Bash(venv/Scripts/python -m pytest tests/test_templates.py -v)",
       "Bash(venv/Scripts/python -m pytest tests/test_editor_model.py -v)",
       "Bash(venv/Scripts/python -m pytest --cov=src -v)",
-      "Bash(venv/Scripts/python -m pytest tests/ -q)"
+      "Bash(venv/Scripts/python -m pytest tests/ -q)",
+      "Bash(venv/Scripts/python -m pytest tests/test_scoring.py -v)",
+      "Bash(\"c:/Users/darth/Code/Corpography/templates/latin/I.json\")",
+      "Bash(\"c:/Users/darth/Code/Corpography/templates/latin/T.json\")",
+      "Bash(\"c:/Users/darth/Code/Corpography/templates/latin/X.json\")"
     ]
   }
 }

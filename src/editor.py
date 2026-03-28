@@ -10,13 +10,17 @@ positions from a live webcam pose, then Save.
 from __future__ import annotations
 
 import enum
+import math
 import os
 import sys
 
 import pygame
 
 from core.editor_model import EditorModel
-from core.templates import TEMPLATE_LANDMARK_NAMES, template_path
+from core.scoring import DEFAULT_D_MAX, score_pose_detail, score_pose_from_pts
+from core.templates import MP_INDEX_TO_NAME, TEMPLATE_LANDMARK_NAMES, template_path
+from pose import VISIBILITY_THRESHOLD
+from ui.display import draw_skeleton
 from utils import resource_path
 
 # ---------------------------------------------------------------------------
@@ -61,10 +65,11 @@ EDITOR_CONNECTIONS: tuple[tuple[str, str], ...] = (
 # ---------------------------------------------------------------------------
 
 class EditorState(enum.Enum):
-    LETTER_SELECT = "letter_select"
-    EDITING       = "editing"
-    RECORDING     = "recording"
-    SAVE_CONFIRM  = "save_confirm"
+    LETTER_SELECT  = "letter_select"
+    EDITING        = "editing"
+    SCORING        = "scoring"
+    SCORING_MANUAL = "scoring_manual"
+    SAVE_CONFIRM   = "save_confirm"
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +155,41 @@ def _draw_ghost_skeleton_on_canvas(
     surface.blit(ghost, (0, 0))
 
 
+def _draw_per_joint_scores(
+    surface: pygame.Surface,
+    per_joint: dict[str, float],
+    positions: dict[str, tuple[float, float]],
+    font: pygame.font.Font,
+) -> None:
+    """Draw a small color-coded score integer to the right of each active joint."""
+    for name, score in per_joint.items():
+        if name not in positions:
+            continue
+        nx, ny = positions[name]
+        cx, cy = _norm_to_canvas(nx, ny)
+        if score >= 80:
+            color = (0, 220, 0)
+        elif score >= 50:
+            color = (255, 200, 0)
+        else:
+            color = (220, 60, 60)
+        label = font.render(f"{score:.0f}", True, color)
+        surface.blit(label, (cx + 10, cy - label.get_height() // 2))
+
+
+def _manual_hit_test(
+    manual_pts: dict[str, list],
+    nx: float,
+    ny: float,
+    radius: float = 0.025,
+) -> str | None:
+    """Return the name of the nearest manual skeleton joint within radius, or None."""
+    for name, xy in manual_pts.items():
+        if math.sqrt((nx - xy[0]) ** 2 + (ny - xy[1]) ** 2) < radius:
+            return name
+    return None
+
+
 def _draw_letter_background(surface: pygame.Surface, shape_id: str, font_large: pygame.font.Font) -> None:
     """Render a semi-transparent letter at 90% window height, centered in the canvas."""
     # Render glyph scaled to 90% of window height
@@ -221,9 +261,10 @@ def _draw_panel(
 
     # Action buttons
     for key, label_text, color in (
-        ("record", "Record from pose", (0, 140, 200)),
-        ("save",   "Save",             (0, 180, 80)),
-        ("new",    "New Letter",       (160, 80, 0)),
+        ("score",  "Score Live",   (140, 0, 200)),
+        ("tune",   "Tune Scoring", (0, 130, 150)),
+        ("save",   "Save",         (0, 180, 80)),
+        ("new",    "New Letter",   (160, 80, 0)),
     ):
         brect = pygame.Rect(pad, y, PANEL_W - pad * 2, 36)
         pygame.draw.rect(panel, color, brect, border_radius=5)
@@ -386,8 +427,10 @@ def _handle_editing(
                     # Panel button click
                     for key, rect in buttons.items():
                         if rect.collidepoint(px, py):
-                            if key == "record":
-                                return EditorState.RECORDING
+                            if key == "score":
+                                return EditorState.SCORING
+                            if key == "tune":
+                                return EditorState.SCORING_MANUAL
                             if key == "save":
                                 model.save()
                                 return EditorState.SAVE_CONFIRM
@@ -416,24 +459,58 @@ def _handle_editing(
     return EditorState.EDITING
 
 
-def _handle_recording(
+
+def _draw_dmax_control(
+    panel: pygame.Surface,
+    y: int,
+    d_max: float,
+    font_b: pygame.font.Font,
+    font_s: pygame.font.Font,
+) -> tuple[int, pygame.Rect, pygame.Rect]:
+    """
+    Draw the D_MAX +/- control row onto panel.
+    Returns (new_y, minus_panel_rect, plus_panel_rect).
+    Callers convert to screen rects by offsetting x by PANEL_X.
+    """
+    pad = 12
+    label = font_s.render(f"D_MAX: {d_max:.2f}", True, (160, 160, 200))
+    panel.blit(label, (pad, y))
+    lw = label.get_width()
+    btn_y = y
+    btn_h = 22
+    btn_w = 26
+    gap = 6
+    minus_x = pad + lw + gap
+    plus_x  = minus_x + btn_w + gap
+    for bx, txt in ((minus_x, "−"), (plus_x, "+")):
+        r = pygame.Rect(bx, btn_y, btn_w, btn_h)
+        pygame.draw.rect(panel, (70, 70, 100), r, border_radius=3)
+        pygame.draw.rect(panel, (140, 140, 180), r, 1, border_radius=3)
+        t = font_b.render(txt, True, (220, 220, 255))
+        panel.blit(t, (r.centerx - t.get_width() // 2, r.centery - t.get_height() // 2))
+    return y + btn_h + 8, pygame.Rect(minus_x, btn_y, btn_w, btn_h), pygame.Rect(plus_x, btn_y, btn_w, btn_h)
+
+
+def _handle_scoring(
     screen: pygame.Surface,
     model: EditorModel,
     cap,
     detector,
     events: list,
+    font_score: pygame.font.Font,
     font_b: pygame.font.Font,
     font_s: pygame.font.Font,
     timestamp_ms: int,
-) -> tuple[EditorState, bool]:
+    d_max: float,
+    capture_flash_ms: int,
+) -> tuple[EditorState, float, int]:
     """
-    Returns (new_state, captured_this_frame).
-    The caller manages cap/detector lifecycle.
+    SCORING state: live webcam feed + continuously updated score + Record button.
+    Returns (new_state, new_d_max, new_capture_flash_ms).
+    ESC returns to EDITING.
     """
-    # Grab frame
     frame = cap.get_frame()
     if frame is not None:
-        import numpy as np
         h, w = frame.shape[:2]
         surf = pygame.image.frombuffer(frame.tobytes(), (w, h), "RGB")
         surf = pygame.transform.scale(surf, (CANVAS_W, WINDOW_H))
@@ -441,53 +518,247 @@ def _handle_recording(
     else:
         screen.fill((10, 10, 10))
 
-    # Run detection
     result = detector.process(frame, timestamp_ms) if frame is not None else None
     landmarks = detector.get_landmarks(result)
     body_ok = detector.body_visible(landmarks)
 
-    # Ghost skeleton overlay
+    # Ghost template skeleton overlay
     _draw_ghost_skeleton_on_canvas(screen, model)
 
-    # Right panel — minimal
+    # Player skeleton overlay
+    if landmarks is not None:
+        draw_skeleton(screen, landmarks, CANVAS_W, WINDOW_H)
+
+    # Compute live score + per-joint breakdown
+    live_score: float | None = None
+    per_joint: dict[str, float] = {}
+    if body_ok and landmarks is not None:
+        live_score, per_joint = score_pose_detail(landmarks, model.template, d_max)
+
+    # Per-joint score labels at player joint positions
+    if per_joint and landmarks is not None:
+        player_positions: dict[str, tuple[float, float]] = {
+            name: (float(landmarks[idx].x), float(landmarks[idx].y))
+            for idx, name in MP_INDEX_TO_NAME.items()
+            if idx < len(landmarks)
+        }
+        _draw_per_joint_scores(screen, per_joint, player_positions, font_s)
+
+    # --- Right panel ---
     panel = pygame.Surface((PANEL_W, WINDOW_H))
     panel.fill((30, 30, 40))
     pygame.draw.line(panel, (80, 80, 100), (0, 0), (0, WINDOW_H), 2)
+
+    pad = 12
     y = 20
-    for line, color in (
-        ("RECORDING", (255, 80, 80)),
-        ("", (0, 0, 0)),
-        ("Stand in position.", (200, 200, 200)),
-        ("", (0, 0, 0)),
-        ("SPACE — capture pose", (0, 220, 0) if body_ok else (120, 120, 120)),
-        ("ESC  — cancel", (160, 160, 160)),
-    ):
-        if line:
-            t = font_b.render(line, True, color)
-            panel.blit(t, (12, y))
-        y += 36
+
+    title = font_b.render("SCORING LIVE", True, (220, 60, 60))
+    panel.blit(title, (pad, y)); y += title.get_height() + 12
+
+    # "Record from pose" button
+    rec_color = (0, 160, 80) if landmarks is not None else (60, 60, 80)
+    rec_rect = pygame.Rect(pad, y, PANEL_W - pad * 2, 36)
+    pygame.draw.rect(panel, rec_color, rec_rect, border_radius=5)
+    pygame.draw.rect(panel, (200, 200, 200), rec_rect, 1, border_radius=5)
+    rec_lbl = font_b.render("Record from pose", True, (255, 255, 255))
+    panel.blit(rec_lbl, (rec_rect.centerx - rec_lbl.get_width() // 2,
+                          rec_rect.centery - rec_lbl.get_height() // 2))
+    rec_sr = pygame.Rect(PANEL_X + rec_rect.x, rec_rect.y, rec_rect.w, rec_rect.h)
+    y += rec_rect.height + 4
+
+    # "Captured!" flash (shown for 1.5 s after capture)
+    if capture_flash_ms > 0 and (timestamp_ms - capture_flash_ms) < 1500:
+        flash = font_b.render("Captured!", True, (0, 255, 100))
+        panel.blit(flash, (pad, y))
+    y += font_b.size("X")[1] + 12
+
+    hint = font_b.render("ESC  to stop", True, (160, 160, 160))
+    panel.blit(hint, (pad, y)); y += hint.get_height() + 20
+
+    # Large score display
+    if live_score is not None:
+        if live_score >= 80:
+            score_color = (0, 220, 0)
+        elif live_score >= 50:
+            score_color = (255, 200, 0)
+        else:
+            score_color = (220, 60, 60)
+        score_surf = font_score.render(f"{live_score:.0f}", True, score_color)
+    else:
+        score_color = (120, 120, 120)
+        score_surf = font_score.render("—", True, score_color)
+
+    sx = (PANEL_W - score_surf.get_width()) // 2
+    panel.blit(score_surf, (sx, y)); y += score_surf.get_height() + 8
+
+    status = "body visible" if body_ok else "body not fully visible"
+    st = font_b.render(status, True, (0, 200, 0) if body_ok else (255, 220, 0))
+    panel.blit(st, ((PANEL_W - st.get_width()) // 2, y)); y += st.get_height() + 16
+
+    # D_MAX control
+    y, minus_pr, plus_pr = _draw_dmax_control(panel, y, d_max, font_b, font_s)
+    minus_sr = pygame.Rect(PANEL_X + minus_pr.x, minus_pr.y, minus_pr.w, minus_pr.h)
+    plus_sr  = pygame.Rect(PANEL_X + plus_pr.x,  plus_pr.y,  plus_pr.w,  plus_pr.h)
+
     screen.blit(panel, (PANEL_X, 0))
 
-    # Body-not-visible warning banner
+    # Body-not-visible warning on canvas
     if not body_ok:
         warn = font_b.render("Step back — body not fully visible", True, (255, 220, 0))
         bw, bh = warn.get_size()
-        pad = 8
-        bg = pygame.Surface((bw + pad * 2, bh + pad * 2), pygame.SRCALPHA)
+        pad8 = 8
+        bg = pygame.Surface((bw + pad8 * 2, bh + pad8 * 2), pygame.SRCALPHA)
         bg.fill((0, 0, 0, 160))
         x = (CANVAS_W - bg.get_width()) // 2
         screen.blit(bg, (x, 56))
-        screen.blit(warn, (x + pad, 56 + pad))
+        screen.blit(warn, (x + pad8, 56 + pad8))
 
     for event in events:
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                return EditorState.EDITING, False
-            if event.key == pygame.K_SPACE and body_ok and landmarks is not None:
-                model.apply_landmarks_from_mediapipe(landmarks)
-                return EditorState.EDITING, True
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            return EditorState.EDITING, d_max, capture_flash_ms
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if rec_sr.collidepoint(event.pos) and landmarks is not None:
+                model.apply_landmarks_with_visibility(landmarks, VISIBILITY_THRESHOLD)
+                capture_flash_ms = timestamp_ms
+            elif minus_sr.collidepoint(event.pos):
+                d_max = max(0.01, round(d_max - 0.01, 2))
+            elif plus_sr.collidepoint(event.pos):
+                d_max = min(1.00, round(d_max + 0.01, 2))
 
-    return EditorState.RECORDING, False
+    return EditorState.SCORING, d_max, capture_flash_ms
+
+
+def _draw_manual_skeleton(
+    surface: pygame.Surface,
+    manual_pts: dict[str, list],
+    manual_dragging: str | None,
+) -> None:
+    """Draw the mouse-draggable test skeleton (white, dragged joint yellow)."""
+    lm = manual_pts
+    for a, b in EDITOR_CONNECTIONS:
+        if a not in lm or b not in lm:
+            continue
+        pa = _norm_to_canvas(lm[a][0], lm[a][1])
+        pb = _norm_to_canvas(lm[b][0], lm[b][1])
+        pygame.draw.line(surface, (180, 180, 180), pa, pb, 2)
+    for name, xy in lm.items():
+        cx, cy = _norm_to_canvas(xy[0], xy[1])
+        is_active = name == manual_dragging
+        color = _COLOR_W_ACTIVE if is_active else _COLOR_W_WHITE
+        r = JOINT_ACTIVE_R if is_active else JOINT_RADIUS
+        pygame.draw.circle(surface, color, (cx, cy), r)
+        pygame.draw.circle(surface, (50, 50, 50), (cx, cy), r, 2)
+
+
+def _handle_scoring_manual(
+    screen: pygame.Surface,
+    model: EditorModel,
+    events: list,
+    manual_pts: dict[str, list],
+    manual_dragging: str | None,
+    font_score: pygame.font.Font,
+    font_b: pygame.font.Font,
+    font_s: pygame.font.Font,
+    font_large: pygame.font.Font,
+    d_max: float,
+) -> tuple[EditorState, str | None, float]:
+    """
+    SCORING_MANUAL state: no camera, mouse-draggable test skeleton.
+    Skeleton starts on top of template (score = 100). Drag joints to test sensitivity.
+    Returns (new_state, new_manual_dragging, new_d_max).
+    """
+    # Canvas background
+    screen.fill((18, 18, 28))
+    pygame.draw.rect(screen, (22, 22, 35), (0, 0, CANVAS_W, WINDOW_H))
+    _draw_letter_background(screen, model.shape_id, font_large)
+
+    # Ghost template skeleton (cyan)
+    _draw_ghost_skeleton_on_canvas(screen, model)
+
+    # Compute score from manual skeleton positions
+    player_pts_for_score = {name: (float(xy[0]), float(xy[1])) for name, xy in manual_pts.items()}
+    live_score, per_joint = score_pose_from_pts(player_pts_for_score, model.template, d_max)
+
+    # Manual skeleton (white, dragged joint yellow)
+    _draw_manual_skeleton(screen, manual_pts, manual_dragging)
+
+    # Per-joint score labels
+    manual_positions = {name: (float(xy[0]), float(xy[1])) for name, xy in manual_pts.items()}
+    _draw_per_joint_scores(screen, per_joint, manual_positions, font_s)
+
+    # --- Right panel ---
+    panel = pygame.Surface((PANEL_W, WINDOW_H))
+    panel.fill((30, 30, 40))
+    pygame.draw.line(panel, (80, 80, 100), (0, 0), (0, WINDOW_H), 2)
+
+    pad = 12
+    y = 20
+
+    title = font_b.render("TUNE SCORING", True, (0, 200, 200))
+    panel.blit(title, (pad, y)); y += title.get_height() + 8
+
+    for line, color in (
+        ("Drag joints to test.", (200, 200, 200)),
+        ("ESC  to stop",        (160, 160, 160)),
+    ):
+        t = font_b.render(line, True, color)
+        panel.blit(t, (pad, y)); y += t.get_height() + 4
+    y += 20
+
+    # Large score display
+    if live_score >= 80:
+        score_color = (0, 220, 0)
+    elif live_score >= 50:
+        score_color = (255, 200, 0)
+    else:
+        score_color = (220, 60, 60)
+    score_surf = font_score.render(f"{live_score:.0f}", True, score_color)
+    sx = (PANEL_W - score_surf.get_width()) // 2
+    panel.blit(score_surf, (sx, y)); y += score_surf.get_height() + 16
+
+    # D_MAX control
+    y, minus_pr, plus_pr = _draw_dmax_control(panel, y, d_max, font_b, font_s)
+    minus_sr = pygame.Rect(PANEL_X + minus_pr.x, minus_pr.y, minus_pr.w, minus_pr.h)
+    plus_sr  = pygame.Rect(PANEL_X + plus_pr.x,  plus_pr.y,  plus_pr.w,  plus_pr.h)
+
+    screen.blit(panel, (PANEL_X, 0))
+
+    # --- Events ---
+    mouse_pos = pygame.mouse.get_pos()
+    if mouse_pos[0] < CANVAS_W:
+        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND
+                                if _manual_hit_test(manual_pts, *_pixel_to_norm(*mouse_pos))
+                                else pygame.SYSTEM_CURSOR_ARROW)
+    else:
+        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+    for event in events:
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            return EditorState.EDITING, None, d_max
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            px, py = event.pos
+            if px < CANVAS_W:
+                nx, ny = _pixel_to_norm(px, py)
+                hit = _manual_hit_test(manual_pts, nx, ny)
+                if hit:
+                    manual_dragging = hit
+            else:
+                if minus_sr.collidepoint(event.pos):
+                    d_max = max(0.01, round(d_max - 0.01, 2))
+                elif plus_sr.collidepoint(event.pos):
+                    d_max = min(1.00, round(d_max + 0.01, 2))
+
+        if event.type == pygame.MOUSEMOTION and event.buttons[0] and manual_dragging:
+            px, py = event.pos
+            nx, ny = _pixel_to_norm(px, py)
+            manual_pts[manual_dragging][0] = nx
+            manual_pts[manual_dragging][1] = ny
+
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            manual_dragging = None
+
+    return EditorState.SCORING_MANUAL, manual_dragging, d_max
 
 
 def _handle_save_confirm(
@@ -554,6 +825,7 @@ def main() -> None:
     font_h     = pygame.font.SysFont(None, 28)
     font_b     = pygame.font.SysFont(None, 24)
     font_s     = pygame.font.SysFont(None, 20)
+    font_score = pygame.font.SysFont(None, 160)   # large score display
 
     state: EditorState = EditorState.LETTER_SELECT
     model: EditorModel | None = None
@@ -561,7 +833,13 @@ def main() -> None:
     hovered_joint: list[str | None] = [None]
     confirm_start_ms: int = 0
 
-    # RECORDING state resources (opened lazily)
+    # Shared scoring parameters (persist across SCORING / SCORING_MANUAL transitions)
+    d_max: float = DEFAULT_D_MAX
+    capture_flash_ms: int = 0    # timestamp of last "Record from pose" capture
+    manual_pts: dict[str, list] = {}
+    manual_dragging: str | None = None
+
+    # RECORDING / SCORING state resources (opened lazily)
     cap = None
     detector = None
 
@@ -597,7 +875,15 @@ def main() -> None:
                 font_large, font_h, font_b, font_s,
                 buttons, hovered_joint,
             )
-            if state == EditorState.RECORDING:
+            if state == EditorState.SCORING_MANUAL:
+                # No camera needed — initialise manual skeleton at template positions
+                manual_pts = {
+                    name: [entry.x, entry.y]
+                    for name, entry in model.template.landmarks.items()
+                }
+                manual_dragging = None
+
+            if state == EditorState.SCORING:
                 # Open camera and detector
                 from capture import Capture
                 from pose import PoseDetector
@@ -623,13 +909,21 @@ def main() -> None:
                 hovered_joint[0] = None
                 model = None
 
-        elif state == EditorState.RECORDING:
+        elif state == EditorState.SCORING:
             assert model is not None and cap is not None and detector is not None
-            state, _ = _handle_recording(
-                screen, model, cap, detector, events, font_b, font_s, timestamp_ms
+            state, d_max, capture_flash_ms = _handle_scoring(
+                screen, model, cap, detector, events,
+                font_score, font_b, font_s, timestamp_ms, d_max, capture_flash_ms
             )
             if state == EditorState.EDITING:
                 _close_recording()
+
+        elif state == EditorState.SCORING_MANUAL:
+            assert model is not None
+            state, manual_dragging, d_max = _handle_scoring_manual(
+                screen, model, events, manual_pts, manual_dragging,
+                font_score, font_b, font_s, font_large, d_max
+            )
 
         elif state == EditorState.SAVE_CONFIRM:
             assert model is not None
