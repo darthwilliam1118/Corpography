@@ -351,7 +351,7 @@ def _handle_letter_select(
     title = font_large.render("Corpography — Template Editor", True, (180, 180, 255))
     screen.blit(title, (WINDOW_W // 2 - title.get_width() // 2, 200))
 
-    prompt = font_body.render("Press a letter key (A–Z) to open or create its template", True, (200, 200, 200))
+    prompt = font_body.render("Press a letter for lowercase (a–z)  |  Shift+letter for uppercase (A–Z)", True, (200, 200, 200))
     screen.blit(prompt, (WINDOW_W // 2 - prompt.get_width() // 2, 320))
 
     hint = font_body.render("ESC  to quit", True, (120, 120, 120))
@@ -360,9 +360,10 @@ def _handle_letter_select(
     for event in events:
         if event.type == pygame.KEYDOWN:
             if pygame.K_a <= event.key <= pygame.K_z:
-                shape_id = chr(event.key).upper()
+                shift_held = bool(event.mod & pygame.KMOD_SHIFT)
+                shape_id = chr(event.key).upper() if shift_held else chr(event.key)
                 templates_dir = _resolve_templates_dir()
-                model = EditorModel(shape_id=shape_id, templates_dir=templates_dir)
+                model = EditorModel(shape_id=shape_id, templates_dir=templates_dir, alphabet="latin")
                 return EditorState.EDITING, model
 
     return EditorState.LETTER_SELECT, None
@@ -774,7 +775,7 @@ def _handle_save_confirm(
     # Then overlay confirmation banner
     confirm_surf = pygame.Surface((500, 80), pygame.SRCALPHA)
     confirm_surf.fill((0, 120, 0, 200))
-    path = f"templates/latin/{model.shape_id}.json"
+    path = f"templates/latin.json  [{model.shape_id}]"
     msg = font_b.render(f"Saved: {path}", True, (255, 255, 255))
     confirm_surf.blit(msg, (20, 25))
     x = (WINDOW_W - confirm_surf.get_width()) // 2
@@ -807,7 +808,7 @@ def _resolve_templates_dir() -> str:
     else:
         # Running from src/, go up to project root
         base = os.path.join(os.path.dirname(__file__), "..")
-    return os.path.normpath(os.path.join(base, "templates", "latin"))
+    return os.path.normpath(os.path.join(base, "templates"))
 
 
 # ---------------------------------------------------------------------------

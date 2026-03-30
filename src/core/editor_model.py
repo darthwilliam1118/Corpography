@@ -5,15 +5,13 @@ Fully testable without a display or camera.
 """
 from __future__ import annotations
 
-import os
-
 from core.templates import (
     MP_INDEX_TO_NAME,
     ShapeTemplate,
+    alphabet_path,
     default_template,
-    load_template,
-    save_template,
-    template_path,
+    load_alphabet,
+    save_alphabet,
 )
 
 # Weight cycle sequence (right-click cycles through these)
@@ -29,18 +27,21 @@ class EditorModel:
     normalized space before calling any method here.
     """
 
-    def __init__(self, shape_id: str, templates_dir: str) -> None:
+    def __init__(self, shape_id: str, templates_dir: str, alphabet: str = "latin") -> None:
         self.shape_id = shape_id
         self.templates_dir = templates_dir
+        self.alphabet = alphabet
         self.error_message: str | None = None
 
-        path = template_path(shape_id, templates_dir)
-        if os.path.exists(path):
-            try:
-                self.template = load_template(path)
-            except (ValueError, FileNotFoundError) as exc:
-                self.error_message = str(exc)
-                self.template = default_template(shape_id)
+        path = alphabet_path(alphabet, templates_dir)
+        try:
+            all_templates = load_alphabet(path)
+        except ValueError as exc:
+            self.error_message = str(exc)
+            all_templates = {}
+
+        if shape_id in all_templates:
+            self.template = all_templates[shape_id]
         else:
             self.template = default_template(shape_id)
 
@@ -157,7 +158,12 @@ class EditorModel:
     # ------------------------------------------------------------------
 
     def save(self) -> None:
-        """Write the current template to disk."""
-        path = template_path(self.shape_id, self.templates_dir)
-        save_template(self.template, path)
+        """Write the current template into the alphabet file (read-modify-write)."""
+        path = alphabet_path(self.alphabet, self.templates_dir)
+        try:
+            all_templates = load_alphabet(path)
+        except ValueError:
+            all_templates = {}
+        all_templates[self.shape_id] = self.template
+        save_alphabet(all_templates, path)
         self.error_message = None

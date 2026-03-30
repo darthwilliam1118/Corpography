@@ -8,8 +8,11 @@ from core.templates import (
     TEMPLATE_LANDMARK_NAMES,
     LandmarkEntry,
     ShapeTemplate,
+    alphabet_path,
     default_template,
+    load_alphabet,
     load_template,
+    save_alphabet,
     save_template,
     template_path,
 )
@@ -171,3 +174,63 @@ def test_load_raises_on_landmarks_not_dict(tmp_path):
     }))
     with pytest.raises(ValueError):
         load_template(str(path))
+
+
+# ---------------------------------------------------------------------------
+# alphabet_path
+# ---------------------------------------------------------------------------
+
+def test_alphabet_path_format():
+    result = alphabet_path("latin", "/base")
+    assert result == os.path.join("/base", "latin.json")
+
+
+def test_alphabet_path_uses_alphabet_name():
+    assert alphabet_path("greek", "/dir").endswith("greek.json")
+
+
+# ---------------------------------------------------------------------------
+# save_alphabet + load_alphabet roundtrip
+# ---------------------------------------------------------------------------
+
+def test_save_load_alphabet_roundtrip(tmp_path):
+    t_a = default_template("A")
+    t_a.landmarks["NOSE"].x = 0.111
+    t_b = default_template("b")
+    t_b.landmarks["NOSE"].x = 0.222
+    t_b.difficulty = 3
+
+    path = alphabet_path("latin", str(tmp_path))
+    save_alphabet({"A": t_a, "b": t_b}, path)
+    loaded = load_alphabet(path)
+
+    assert set(loaded.keys()) == {"A", "b"}
+    assert abs(loaded["A"].landmarks["NOSE"].x - 0.111) < 1e-3
+    assert abs(loaded["b"].landmarks["NOSE"].x - 0.222) < 1e-3
+    assert loaded["b"].difficulty == 3
+    assert loaded["A"].shape_id == "A"
+    assert loaded["b"].shape_id == "b"
+
+
+def test_load_alphabet_returns_empty_for_missing_file(tmp_path):
+    path = alphabet_path("latin", str(tmp_path))
+    result = load_alphabet(path)
+    assert result == {}
+
+
+def test_save_alphabet_overwrites_cleanly(tmp_path):
+    path = alphabet_path("latin", str(tmp_path))
+    save_alphabet({"A": default_template("A")}, path)
+    save_alphabet({"B": default_template("B")}, path)
+    loaded = load_alphabet(path)
+    # Second save replaces entirely — only "B" present
+    assert "B" in loaded
+    assert "A" not in loaded
+
+
+def test_load_alphabet_raises_on_bad_json(tmp_path):
+    import pytest
+    path = tmp_path / "latin.json"
+    path.write_text("not valid json {{{")
+    with pytest.raises(ValueError):
+        load_alphabet(str(path))

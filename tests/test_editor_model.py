@@ -11,9 +11,9 @@ from core.editor_model import EditorModel
 from core.templates import (
     TEMPLATE_LANDMARK_NAMES,
     MP_INDEX_TO_NAME,
+    alphabet_path,
     default_template,
-    save_template,
-    template_path,
+    save_alphabet,
 )
 
 
@@ -22,7 +22,7 @@ from core.templates import (
 # ---------------------------------------------------------------------------
 
 def _make_model(tmp_path, shape_id="A"):
-    return EditorModel(shape_id=shape_id, templates_dir=str(tmp_path))
+    return EditorModel(shape_id=shape_id, templates_dir=str(tmp_path), alphabet="latin")
 
 
 def _fake_landmarks():
@@ -48,8 +48,8 @@ def test_uses_default_when_no_file(tmp_path):
 def test_loads_existing_template_when_file_present(tmp_path):
     t = default_template("B")
     t.landmarks["NOSE"].x = 0.1234
-    save_template(t, template_path("B", str(tmp_path)))
-    model = EditorModel(shape_id="B", templates_dir=str(tmp_path))
+    save_alphabet({"B": t}, alphabet_path("latin", str(tmp_path)))
+    model = EditorModel(shape_id="B", templates_dir=str(tmp_path), alphabet="latin")
     assert abs(model.template.landmarks["NOSE"].x - 0.1234) < 1e-3
 
 
@@ -235,11 +235,11 @@ def test_hit_test_radius_respected(tmp_path):
 def test_save_writes_json_to_disk(tmp_path):
     model = _make_model(tmp_path, "C")
     model.save()
-    path = template_path("C", str(tmp_path))
+    path = alphabet_path("latin", str(tmp_path))
     assert os.path.exists(path)
     with open(path) as f:
         data = json.load(f)
-    assert data["shape_id"] == "C"
+    assert "C" in data["templates"]
 
 
 def test_save_and_reload_via_new_model(tmp_path):
@@ -248,6 +248,6 @@ def test_save_and_reload_via_new_model(tmp_path):
     model1.template.difficulty = 3
     model1.save()
 
-    model2 = EditorModel(shape_id="D", templates_dir=str(tmp_path))
+    model2 = EditorModel(shape_id="D", templates_dir=str(tmp_path), alphabet="latin")
     assert abs(model2.template.landmarks["NOSE"].x - 0.42) < 1e-3
     assert model2.template.difficulty == 3

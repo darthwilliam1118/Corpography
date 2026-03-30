@@ -1,0 +1,138 @@
+{
+  "alphabet": "latin",
+  "templates": {
+    "A": {
+      "display_name": "Letter A",
+      "difficulty": 2,
+      "landmarks": {
+        "NOSE": { "x": 0.5441, "y": 0.2395, "weight": 1.0 },
+        "LEFT_SHOULDER": { "x": 0.5975, "y": 0.3371, "weight": 1.0 },
+        "RIGHT_SHOULDER": { "x": 0.4859, "y": 0.3425, "weight": 1.0 },
+        "LEFT_ELBOW": { "x": 0.6106, "y": 0.4519, "weight": 1.0 },
+        "RIGHT_ELBOW": { "x": 0.4713, "y": 0.4532, "weight": 1.0 },
+        "LEFT_WRIST": { "x": 0.5408, "y": 0.4511, "weight": 1.0 },
+        "RIGHT_WRIST": { "x": 0.5427, "y": 0.4476, "weight": 1.0 },
+        "LEFT_HIP": { "x": 0.5814, "y": 0.575, "weight": 1.0 },
+        "RIGHT_HIP": { "x": 0.5111, "y": 0.581, "weight": 1.0 },
+        "LEFT_KNEE": { "x": 0.6223, "y": 0.765, "weight": 1.0 },
+        "RIGHT_KNEE": { "x": 0.4659, "y": 0.7634, "weight": 1.0 },
+        "LEFT_ANKLE": { "x": 0.6662, "y": 0.9194, "weight": 1.0 },
+        "RIGHT_ANKLE": { "x": 0.4097, "y": 0.936, "weight": 1.0 }
+      }
+    },
+    "B": {
+      "display_name": "Letter B",
+      "difficulty": 2,
+      "landmarks": {
+        "NOSE": { "x": 0.4959, "y": 0.2784, "weight": 1.0 },
+        "LEFT_SHOULDER": { "x": 0.4935, "y": 0.3624, "weight": 1.0 },
+        "RIGHT_SHOULDER": { "x": 0.4357, "y": 0.3386, "weight": 1.0 },
+        "LEFT_ELBOW": { "x": 0.5998, "y": 0.4492, "weight": 1.0 },
+        "RIGHT_ELBOW": { "x": 0.5899, "y": 0.2858, "weight": 1.0 },
+        "LEFT_WRIST": { "x": 0.6694, "y": 0.376, "weight": 1.0 },
+        "RIGHT_WRIST": { "x": 0.67, "y": 0.345, "weight": 1.0 },
+        "LEFT_HIP": { "x": 0.4882, "y": 0.6104, "weight": 1.0 },
+        "RIGHT_HIP": { "x": 0.4375, "y": 0.6214, "weight": 1.0 },
+        "LEFT_KNEE": { "x": 0.5937, "y": 0.6542, "weight": 1.0 },
+        "RIGHT_KNEE": { "x": 0.453, "y": 0.8076, "weight": 1.0 },
+        "LEFT_ANKLE": { "x": 0.4723, "y": 0.7833, "weight": 1.0 },
+        "RIGHT_ANKLE": { "x": 0.4568, "y": 0.9989, "weight": 0.0 }
+      }
+    },
+    "C": {
+      "display_name": "Letter C",
+      "difficulty": 2,
+      "landmarks": {
+        "NOSE": { "x": 0.4626, "y": 0.2987, "weight": 1.0 },
+        "LEFT_SHOULDER": { "x": 0.4081, "y": 0.3809, "weight": 1.0 },
+        "RIGHT_SHOULDER": { "x": 0.412, "y": 0.3081, "weight": 1.0 },
+        "LEFT_ELBOW": { "x": 0.22, "y": 0.52, "weight": 0.0 },
+        "RIGHT_ELBOW": { "x": 0.4604, "y": 0.2091, "weight": 1.0 },
+        "LEFT_WRIST": { "x": 0.18, "y": 0.7, "weight": 0.0 },
+        "RIGHT_WRIST": { "x": 0.5318, "y": 0.1731, "weight": 1.0 },
+        "LEFT_HIP": { "x": 0.4055, "y": 0.6001, "weight": 1.0 },
+        "RIGHT_HIP": { "x": 0.4222, "y": 0.5688, "weight": 1.0 },
+        "LEFT_KNEE": { "x": 0.4266, "y": 0.7849, "weight": 0.0 },
+        "RIGHT_KNEE": { "x": 0.5469, "y": 0.6319, "weight": 1.0 },
+        "LEFT_ANKLE": { "x": 0.4178, "y": 0.9189, "weight": 0.0 },
+        "RIGHT_ANKLE": { "x": 0.6844, "y": 0.7272, "weight": 1.0 }
+      }
+    },
+    "I": {
+      "display_name": "Letter I",
+      "difficulty": 1,
+      "landmarks": {
+        "NOSE": { "x": 0.5275, "y": 0.2217, "weight": 0.5 },
+        "LEFT_SHOULDER": { "x": 0.582, "y": 0.3239, "weight": 1.0 },
+        "RIGHT_SHOULDER": { "x": 0.4682, "y": 0.3341, "weight": 1.0 },
+        "LEFT_ELBOW": { "x": 0.5975, "y": 0.4491, "weight": 0.5 },
+        "RIGHT_ELBOW": { "x": 0.4612, "y": 0.4588, "weight": 0.5 },
+        "LEFT_WRIST": { "x": 0.5832, "y": 0.5525, "weight": 0.5 },
+        "RIGHT_WRIST": { "x": 0.457, "y": 0.5363, "weight": 0.5 },
+        "LEFT_HIP": { "x": 0.5535, "y": 0.5701, "weight": 1.0 },
+        "RIGHT_HIP": { "x": 0.4892, "y": 0.5676, "weight": 1.0 },
+        "LEFT_KNEE": { "x": 0.5559, "y": 0.7462, "weight": 0.5 },
+        "RIGHT_KNEE": { "x": 0.487, "y": 0.751, "weight": 0.5 },
+        "LEFT_ANKLE": { "x": 0.5457, "y": 0.9015, "weight": 0.5 },
+        "RIGHT_ANKLE": { "x": 0.5, "y": 0.9056, "weight": 0.5 }
+      }
+    },
+    "O": {
+      "display_name": "Letter O",
+      "difficulty": 2,
+      "landmarks": {
+        "NOSE": { "x": 0.5061, "y": 0.2289, "weight": 1.0 },
+        "LEFT_SHOULDER": { "x": 0.5646, "y": 0.3035, "weight": 1.0 },
+        "RIGHT_SHOULDER": { "x": 0.454, "y": 0.3028, "weight": 1.0 },
+        "LEFT_ELBOW": { "x": 0.6233, "y": 0.2061, "weight": 1.0 },
+        "RIGHT_ELBOW": { "x": 0.3847, "y": 0.2281, "weight": 1.0 },
+        "LEFT_WRIST": { "x": 0.5736, "y": 0.1024, "weight": 1.0 },
+        "RIGHT_WRIST": { "x": 0.4507, "y": 0.126, "weight": 1.0 },
+        "LEFT_HIP": { "x": 0.5502, "y": 0.593, "weight": 1.0 },
+        "RIGHT_HIP": { "x": 0.4756, "y": 0.5919, "weight": 1.0 },
+        "LEFT_KNEE": { "x": 0.5488, "y": 0.7901, "weight": 1.0 },
+        "RIGHT_KNEE": { "x": 0.4778, "y": 0.7906, "weight": 1.0 },
+        "LEFT_ANKLE": { "x": 0.5393, "y": 0.958, "weight": 1.0 },
+        "RIGHT_ANKLE": { "x": 0.4827, "y": 0.9433, "weight": 1.0 }
+      }
+    },
+    "T": {
+      "display_name": "Letter T",
+      "difficulty": 2,
+      "landmarks": {
+        "NOSE": { "x": 0.5252, "y": 0.2124, "weight": 0.3 },
+        "LEFT_SHOULDER": { "x": 0.5742, "y": 0.3033, "weight": 1.0 },
+        "RIGHT_SHOULDER": { "x": 0.4612, "y": 0.3041, "weight": 1.0 },
+        "LEFT_ELBOW": { "x": 0.6619, "y": 0.3201, "weight": 1.0 },
+        "RIGHT_ELBOW": { "x": 0.3638, "y": 0.3133, "weight": 1.0 },
+        "LEFT_WRIST": { "x": 0.768, "y": 0.3173, "weight": 1.0 },
+        "RIGHT_WRIST": { "x": 0.2719, "y": 0.3138, "weight": 1.0 },
+        "LEFT_HIP": { "x": 0.5468, "y": 0.5699, "weight": 0.8 },
+        "RIGHT_HIP": { "x": 0.4888, "y": 0.566, "weight": 0.8 },
+        "LEFT_KNEE": { "x": 0.5431, "y": 0.765, "weight": 0.3 },
+        "RIGHT_KNEE": { "x": 0.4866, "y": 0.7616, "weight": 0.3 },
+        "LEFT_ANKLE": { "x": 0.5339, "y": 0.9351, "weight": 0.3 },
+        "RIGHT_ANKLE": { "x": 0.5028, "y": 0.9374, "weight": 0.3 }
+      }
+    },
+    "X": {
+      "display_name": "Letter X",
+      "difficulty": 1,
+      "landmarks": {
+        "NOSE": { "x": 0.5239, "y": 0.2929, "weight": 0.3 },
+        "LEFT_SHOULDER": { "x": 0.5766, "y": 0.3585, "weight": 0.8 },
+        "RIGHT_SHOULDER": { "x": 0.4712, "y": 0.3609, "weight": 0.8 },
+        "LEFT_ELBOW": { "x": 0.653, "y": 0.2942, "weight": 1.0 },
+        "RIGHT_ELBOW": { "x": 0.3849, "y": 0.2902, "weight": 1.0 },
+        "LEFT_WRIST": { "x": 0.7178, "y": 0.2102, "weight": 1.0 },
+        "RIGHT_WRIST": { "x": 0.3286, "y": 0.2236, "weight": 1.0 },
+        "LEFT_HIP": { "x": 0.56, "y": 0.6174, "weight": 0.5 },
+        "RIGHT_HIP": { "x": 0.4956, "y": 0.6157, "weight": 0.5 },
+        "LEFT_KNEE": { "x": 0.5975, "y": 0.7806, "weight": 1.0 },
+        "RIGHT_KNEE": { "x": 0.4504, "y": 0.7807, "weight": 1.0 },
+        "LEFT_ANKLE": { "x": 0.6408, "y": 0.9447, "weight": 1.0 },
+        "RIGHT_ANKLE": { "x": 0.4085, "y": 0.9365, "weight": 1.0 }
+      }
+    }
+  }
+}

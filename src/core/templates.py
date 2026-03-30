@@ -183,3 +183,109 @@ def save_template(template: ShapeTemplate, path: str) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=False)
         f.write("\n")
+
+
+# ---------------------------------------------------------------------------
+# Alphabet file (combined multi-letter) load / save / path
+# ---------------------------------------------------------------------------
+
+def alphabet_path(alphabet: str, base_dir: str) -> str:
+    """Resolve path to a combined alphabet file: <base_dir>/<alphabet>.json"""
+    return os.path.join(base_dir, f"{alphabet}.json")
+
+
+def _parse_landmarks(raw_landmarks: dict, context: str) -> dict[str, LandmarkEntry]:
+    """Shared landmark parsing logic used by both load_template and load_alphabet."""
+    if not isinstance(raw_landmarks, dict):
+        raise ValueError(f"'landmarks' must be a dict in {context}")
+    landmarks: dict[str, LandmarkEntry] = {}
+    for name, entry in raw_landmarks.items():
+        try:
+            x = float(entry["x"])
+            y = float(entry["y"])
+            w = float(entry["weight"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"Bad landmark entry '{name}' in {context}: {exc}") from exc
+        if not (0.0 <= x <= 1.0):
+            raise ValueError(f"Landmark '{name}' x={x} out of range [0,1] in {context}")
+        if not (0.0 <= y <= 1.0):
+            raise ValueError(f"Landmark '{name}' y={y} out of range [0,1] in {context}")
+        if not (0.0 <= w <= 1.0):
+            raise ValueError(f"Landmark '{name}' weight={w} out of range [0,1] in {context}")
+        landmarks[name] = LandmarkEntry(x=x, y=y, weight=w)
+    return landmarks
+
+
+def load_alphabet(path: str) -> dict[str, ShapeTemplate]:
+    """
+    Load all templates from a combined alphabet file.
+
+    Returns {} if the file does not exist (clean first-run behaviour).
+    Raises ValueError on bad JSON or out-of-range values.
+    """
+    if not os.path.exists(path):
+        return {}
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in alphabet file {path}: {exc}") from exc
+
+    raw_templates = data.get("templates", {})
+    if not isinstance(raw_templates, dict):
+        raise ValueError(f"'templates' must be a dict in {path}")
+
+    result: dict[str, ShapeTemplate] = {}
+    for shape_id, entry in raw_templates.items():
+        try:
+            display_name = str(entry["display_name"])
+            difficulty = int(entry["difficulty"])
+        except (KeyError, TypeError) as exc:
+            raise ValueError(f"Missing field for '{shape_id}' in {path}: {exc}") from exc
+
+        landmarks = _parse_landmarks(
+            entry.get("landmarks", {}),
+            context=f"{path}[{shape_id}]",
+        )
+        result[shape_id] = ShapeTemplate(
+            shape_id=shape_id,
+            display_name=display_name,
+            difficulty=difficulty,
+            landmarks=landmarks,
+        )
+
+    return result
+
+
+def save_alphabet(templates: dict[str, ShapeTemplate], path: str) -> None:
+    """
+    Write all templates to a combined alphabet file.
+    Creates parent directories if needed.
+    Floats are rounded to 4 decimal places for clean diffs.
+    """
+    os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
+
+    templates_dict: dict = {}
+    for shape_id, tmpl in templates.items():
+        templates_dict[shape_id] = {
+            "display_name": tmpl.display_name,
+            "difficulty":   tmpl.difficulty,
+            "landmarks": {
+                name: {
+                    "x":      round(entry.x, 4),
+                    "y":      round(entry.y, 4),
+                    "weight": round(entry.weight, 4),
+                }
+                for name, entry in tmpl.landmarks.items()
+            },
+        }
+
+    payload = {
+        "alphabet":  os.path.splitext(os.path.basename(path))[0],
+        "templates": templates_dict,
+    }
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=False)
+        f.write("\n")
