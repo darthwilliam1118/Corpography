@@ -18,7 +18,10 @@ import pygame
 
 from core.editor_model import EditorModel
 from core.scoring import DEFAULT_D_MAX, score_pose_detail, score_pose_from_pts
-from core.templates import MP_INDEX_TO_NAME, TEMPLATE_LANDMARK_NAMES, template_path
+from core.templates import (
+    MP_INDEX_TO_NAME, TEMPLATE_LANDMARK_NAMES, template_path,
+    alphabet_path, load_alphabet,
+)
 from pose import VISIBILITY_THRESHOLD
 from ui.display import draw_skeleton
 from utils import resource_path
@@ -348,23 +351,74 @@ def _handle_letter_select(
 ) -> tuple[EditorState, EditorModel | None]:
     screen.fill((10, 10, 20))
 
+    # Load which letters already have templates
+    templates_dir = _resolve_templates_dir()
+    try:
+        existing_ids = set(load_alphabet(alphabet_path("latin", templates_dir)).keys())
+    except Exception:
+        existing_ids = set()
+
+    # --- Title and sub-prompt ---
     title = font_large.render("Corpography — Template Editor", True, (180, 180, 255))
-    screen.blit(title, (WINDOW_W // 2 - title.get_width() // 2, 200))
+    screen.blit(title, (WINDOW_W // 2 - title.get_width() // 2, 120))
 
-    prompt = font_body.render("Press a letter for lowercase (a–z)  |  Shift+letter for uppercase (A–Z)", True, (200, 200, 200))
-    screen.blit(prompt, (WINDOW_W // 2 - prompt.get_width() // 2, 320))
+    sub = font_body.render(
+        "Click a letter  |  or press Shift+key for uppercase / key for lowercase",
+        True, (160, 160, 160),
+    )
+    screen.blit(sub, (WINDOW_W // 2 - sub.get_width() // 2, 175))
 
-    hint = font_body.render("ESC  to quit", True, (120, 120, 120))
-    screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2, 400))
+    # --- Letter grid ---
+    CELL_W, TILE_W = 46, 40
+    CELL_H, TILE_H = 50, 44
+    UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    LOWERCASE = "abcdefghijklmnopqrstuvwxyz"
+    start_x = (WINDOW_W - 26 * CELL_W) // 2
+    y_upper, y_lower = 280, 346
 
+    mx, my = pygame.mouse.get_pos()
+
+    for row_letters, row_y, label in (
+        (UPPERCASE, y_upper, "UPPERCASE"),
+        (LOWERCASE, y_lower, "lowercase"),
+    ):
+        lbl = font_body.render(label, True, (90, 90, 100))
+        screen.blit(lbl, (start_x, row_y - 22))
+
+        for i, ch in enumerate(row_letters):
+            tile = pygame.Rect(start_x + i * CELL_W, row_y, TILE_W, TILE_H)
+            has = ch in existing_ids
+            hovered = tile.collidepoint(mx, my)
+            bg = (0, 140, 50) if has else (55, 55, 70)
+            if hovered:
+                bg = tuple(min(255, c + 40) for c in bg)
+            text_color = (255, 255, 255) if has else (110, 110, 125)
+            pygame.draw.rect(screen, bg, tile, border_radius=4)
+            glyph = font_large.render(ch, True, text_color)
+            screen.blit(glyph, glyph.get_rect(center=tile.center))
+
+    hint = font_body.render("ESC  to quit", True, (100, 100, 100))
+    screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2, 440))
+
+    # --- Events ---
     for event in events:
         if event.type == pygame.KEYDOWN:
             if pygame.K_a <= event.key <= pygame.K_z:
                 shift_held = bool(event.mod & pygame.KMOD_SHIFT)
                 shape_id = chr(event.key).upper() if shift_held else chr(event.key)
-                templates_dir = _resolve_templates_dir()
                 model = EditorModel(shape_id=shape_id, templates_dir=templates_dir, alphabet="latin")
                 return EditorState.EDITING, model
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for row_letters, row_y, _ in (
+                (UPPERCASE, y_upper, None),
+                (LOWERCASE, y_lower, None),
+            ):
+                for i, ch in enumerate(row_letters):
+                    tile = pygame.Rect(start_x + i * CELL_W, row_y, TILE_W, TILE_H)
+                    if tile.collidepoint(event.pos):
+                        model = EditorModel(shape_id=ch, templates_dir=templates_dir, alphabet="latin")
+                        return EditorState.EDITING, model
 
     return EditorState.LETTER_SELECT, None
 
@@ -860,6 +914,11 @@ def main() -> None:
                 _close_recording()
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                if state == EditorState.LETTER_SELECT:
+                    _close_recording()
+                    pygame.quit()
+                    sys.exit()
 
         timestamp_ms = pygame.time.get_ticks()
 
