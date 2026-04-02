@@ -33,6 +33,23 @@ def draw_skeleton(surface: pygame.Surface, landmarks: list, win_w: int, win_h: i
         pygame.draw.circle(surface, color, (px, py), 4)
 
 
+def scale_and_crop(surf: pygame.Surface, target_w: int, target_h: int) -> pygame.Surface:
+    """Scale *surf* to fill (target_w × target_h), preserving aspect ratio.
+
+    The source is scaled so that both target dimensions are covered, then the
+    excess is center-cropped.  This prevents any stretching regardless of the
+    source aspect ratio.
+    """
+    sw, sh = surf.get_size()
+    scale = max(target_w / sw, target_h / sh)
+    scaled_w = int(sw * scale)
+    scaled_h = int(sh * scale)
+    scaled = pygame.transform.smoothscale(surf, (scaled_w, scaled_h))
+    x = (scaled_w - target_w) // 2
+    y = (scaled_h - target_h) // 2
+    return scaled.subsurface(pygame.Rect(x, y, target_w, target_h)).copy()
+
+
 def draw_body_warning(surface: pygame.Surface, font: pygame.font.Font, win_w: int, win_h: int) -> None:
     """Display a translucent 'body not fully visible' warning near the top-centre of the screen."""
     text = font.render("Step back \u2014 body not fully visible", True, _COLOR_WARN)

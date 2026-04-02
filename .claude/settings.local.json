@@ -33,7 +33,12 @@
       "Bash(venv/Scripts/python -m pytest tests/test_scoring.py -v)",
       "Bash(\"c:/Users/darth/Code/Corpography/templates/latin/I.json\")",
       "Bash(\"c:/Users/darth/Code/Corpography/templates/latin/T.json\")",
-      "Bash(\"c:/Users/darth/Code/Corpography/templates/latin/X.json\")"
+      "Bash(\"c:/Users/darth/Code/Corpography/templates/latin/X.json\")",
+      "Bash(find /c/Users/darth/Code/Corpography -maxdepth 3 -type f \\\\\\(-name *.json -o -name *.ini -o -name *.yaml -o -name *.yml -o -name config* -o -name settings* \\\\\\))",
+      "Bash(find /c/Users/darth/Code/Corpography -type f \\\\\\(-name *.json -o -name *.yaml -o -name *.yml -o -name *.ini \\\\\\))",
+      "Bash(find /c/Users/darth/Code/Corpography *)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

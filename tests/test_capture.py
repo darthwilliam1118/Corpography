@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from capture import Capture
+from capture import Capture, enumerate_cameras
 
 
 class MockCap:
@@ -107,6 +107,68 @@ def test_get_frame_is_horizontally_flipped():
     np.testing.assert_array_equal(result[0, -1], [0, 0, 255])
     # Leftmost column should be black (was the right side of the original black frame)
     np.testing.assert_array_equal(result[0, 0], [0, 0, 0])
+
+
+# ── enumerate_cameras() ───────────────────────────────────────────────────────
+
+def _make_cam(index, name, vid, pid, backend=700):
+    """Build a simple namespace CameraInfo-like object (mutable .index)."""
+    class _Cam:
+        pass
+    c = _Cam()
+    c.index   = index
+    c.name    = name
+    c.vid     = vid
+    c.pid     = pid
+    c.backend = backend
+    return c
+
+
+def test_enumerate_cameras_returns_physical_cameras_with_encoded_index():
+    # Raw DSHOW indices are 1 and 2; encoded = raw + 700
+    fake = [
+        _make_cam(1, "Integrated Webcam", 0x0c45, 0x6723),
+        _make_cam(2, "Logitech BRIO", 0x046d, 0x085e),
+    ]
+    with patch("capture._lib_enumerate_cameras", return_value=fake):
+        result = enumerate_cameras()
+    assert [c.index for c in result] == [701, 702]
+
+
+def test_enumerate_cameras_filters_virtual_cameras():
+    fake = [
+        _make_cam(1, "Logitech BRIO", 0x046d, 0x085e),
+        _make_cam(2, "OBS Virtual Camera", 0, 0),
+        _make_cam(3, "NDI Source", None, None),
+    ]
+    with patch("capture._lib_enumerate_cameras", return_value=fake):
+        result = enumerate_cameras()
+    assert len(result) == 1
+    assert result[0].name == "Logitech BRIO"
+
+
+def test_enumerate_cameras_deduplicates_by_vid_pid():
+    # Same physical device appearing under two backends — first kept
+    fake = [
+        _make_cam(1, "Logitech BRIO", 0x046d, 0x085e),
+        _make_cam(1, "Logitech BRIO", 0x046d, 0x085e),  # duplicate
+        _make_cam(2, "Integrated Webcam", 0x0c45, 0x6723),
+    ]
+    with patch("capture._lib_enumerate_cameras", return_value=fake):
+        result = enumerate_cameras()
+    assert len(result) == 2
+    assert result[0].index == 701   # first occurrence, encoded
+    assert result[1].index == 702
+
+
+def test_enumerate_cameras_empty_when_no_physical_cameras():
+    fake = [
+        _make_cam(0, "OBS Virtual Camera", 0, 0),
+        _make_cam(1, "NDI Source", None, None),
+    ]
+    with patch("capture._lib_enumerate_cameras", return_value=fake):
+        result = enumerate_cameras()
+    assert result == []
 
 
 # ── release() ─────────────────────────────────────────────────────────────────

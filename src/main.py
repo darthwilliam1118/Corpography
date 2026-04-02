@@ -1,8 +1,10 @@
 import sys
 import pygame
 from capture import Capture
+from config import get_camera_index, load_config, save_config, set_camera_index
 from pose import PoseDetector
-from ui.display import draw_skeleton, draw_body_warning, draw_debug_panel
+from ui.camera_select import run_camera_select
+from ui.display import draw_skeleton, draw_body_warning, draw_debug_panel, scale_and_crop
 from utils import resource_path
 
 WINDOW_W, WINDOW_H = 1280, 960
@@ -38,11 +40,26 @@ def main():
     debug_font = pygame.font.SysFont(None, 22)
     clock = pygame.time.Clock()
 
-    cap = Capture(device_index=0)
-    if not cap.open():
-        _show_error_screen(screen, error_font, "No camera found — check your webcam.", ERROR_DISPLAY_MS)
-        pygame.quit()
-        sys.exit(1)
+    cfg = load_config()
+    camera_index = get_camera_index(cfg)
+    fonts = {"title": error_font, "body": fps_font, "small": fps_font}
+
+    cap = Capture(device_index=camera_index if camera_index is not None else 0)
+    opened = camera_index is not None and cap.open()
+
+    if not opened:
+        error_msg = f"Camera {camera_index} not found." if camera_index is not None else None
+        chosen = run_camera_select(screen, clock, fonts, error_message=error_msg)
+        if chosen is None:
+            pygame.quit()
+            sys.exit(0)
+        cfg = set_camera_index(cfg, chosen)
+        save_config(cfg)
+        cap = Capture(device_index=chosen)
+        if not cap.open():
+            _show_error_screen(screen, error_font, "Selected camera failed to open.", ERROR_DISPLAY_MS)
+            pygame.quit()
+            sys.exit(1)
 
     model_file = resource_path("assets/pose_landmarker_lite.task")
     detector = PoseDetector(model_path=model_file)
@@ -69,7 +86,7 @@ def main():
         if frame is not None:
             h, w = frame.shape[:2]
             surf = pygame.image.frombuffer(frame.tobytes(), (w, h), "RGB")
-            surf = pygame.transform.scale(surf, (WINDOW_W, WINDOW_H))
+            surf = scale_and_crop(surf, WINDOW_W, WINDOW_H)
             screen.blit(surf, (0, 0))
         else:
             screen.fill((0, 0, 0))

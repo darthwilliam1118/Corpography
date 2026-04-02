@@ -13,6 +13,7 @@ import enum
 import math
 import os
 import sys
+import threading
 
 import pygame
 
@@ -22,8 +23,11 @@ from core.templates import (
     MP_INDEX_TO_NAME, TEMPLATE_LANDMARK_NAMES, template_path,
     alphabet_path, load_alphabet,
 )
-from pose import VISIBILITY_THRESHOLD
-from ui.display import draw_skeleton
+from capture import Capture
+from config import get_camera_index, load_config, save_config, set_camera_index
+from pose import PoseDetector, VISIBILITY_THRESHOLD
+from ui.camera_select import run_camera_select
+from ui.display import draw_skeleton, scale_and_crop
 from utils import resource_path
 
 # ---------------------------------------------------------------------------
@@ -558,20 +562,21 @@ def _handle_scoring(
     timestamp_ms: int,
     d_max: float,
     capture_flash_ms: int,
-) -> tuple[EditorState, float, int]:
+    show_video: bool = True,
+) -> tuple[EditorState, float, int, bool]:
     """
     SCORING state: live webcam feed + continuously updated score + Record button.
-    Returns (new_state, new_d_max, new_capture_flash_ms).
+    Returns (new_state, new_d_max, new_capture_flash_ms, new_show_video).
     ESC returns to EDITING.
     """
     frame = cap.get_frame()
-    if frame is not None:
+    if show_video and frame is not None:
         h, w = frame.shape[:2]
         surf = pygame.image.frombuffer(frame.tobytes(), (w, h), "RGB")
-        surf = pygame.transform.scale(surf, (CANVAS_W, WINDOW_H))
+        surf = scale_and_crop(surf, CANVAS_W, WINDOW_H)
         screen.blit(surf, (0, 0))
     else:
-        screen.fill((10, 10, 10))
+        screen.fill((10, 10, 20))
 
     result = detector.process(frame, timestamp_ms) if frame is not None else None
     landmarks = detector.get_landmarks(result)
@@ -620,6 +625,16 @@ def _handle_scoring(
                           rec_rect.centery - rec_lbl.get_height() // 2))
     rec_sr = pygame.Rect(PANEL_X + rec_rect.x, rec_rect.y, rec_rect.w, rec_rect.h)
     y += rec_rect.height + 4
+
+    # Video toggle button
+    vid_color = (0, 130, 180) if show_video else (55, 55, 70)
+    vid_rect = pygame.Rect(pad, y, PANEL_W - pad * 2, 32)
+    pygame.draw.rect(panel, vid_color, vid_rect, border_radius=5)
+    pygame.draw.rect(panel, (200, 200, 200), vid_rect, 1, border_radius=5)
+    vid_lbl = font_b.render(f"Video: {'ON' if show_video else 'OFF'}", True, (255, 255, 255))
+    panel.blit(vid_lbl, vid_lbl.get_rect(center=vid_rect.center))
+    vid_sr = pygame.Rect(PANEL_X + vid_rect.x, vid_rect.y, vid_rect.w, vid_rect.h)
+    y += vid_rect.height + 8
 
     # "Captured!" flash (shown for 1.5 s after capture)
     if capture_flash_ms > 0 and (timestamp_ms - capture_flash_ms) < 1500:
@@ -670,17 +685,19 @@ def _handle_scoring(
 
     for event in events:
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            return EditorState.EDITING, d_max, capture_flash_ms
+            return EditorState.EDITING, d_max, capture_flash_ms, show_video
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if rec_sr.collidepoint(event.pos) and landmarks is not None:
                 model.apply_landmarks_with_visibility(landmarks, VISIBILITY_THRESHOLD)
                 capture_flash_ms = timestamp_ms
+            elif vid_sr.collidepoint(event.pos):
+                show_video = not show_video
             elif minus_sr.collidepoint(event.pos):
                 d_max = max(0.01, round(d_max - 0.01, 2))
             elif plus_sr.collidepoint(event.pos):
                 d_max = min(1.00, round(d_max + 0.01, 2))
 
-    return EditorState.SCORING, d_max, capture_flash_ms
+    return EditorState.SCORING, d_max, capture_flash_ms, show_video
 
 
 def _draw_manual_skeleton(
@@ -893,10 +910,104 @@ def main() -> None:
     capture_flash_ms: int = 0    # timestamp of last "Record from pose" capture
     manual_pts: dict[str, list] = {}
     manual_dragging: str | None = None
+    show_video: bool = True       # SCORING: show camera feed vs clean black background
 
-    # RECORDING / SCORING state resources (opened lazily)
-    cap = None
-    detector = None
+    # Resolve camera index from config — show selection screen if needed (before thread).
+    cfg = load_config()
+    camera_index: int | None = get_camera_index(cfg)
+    _cam_fonts = {"title": font_title, "body": font_b, "small": font_s}
+
+    if camera_index is None:
+        chosen = run_camera_select(screen, clock, _cam_fonts)
+        if chosen is None:
+            pygame.quit()
+            sys.exit(0)
+        cfg = set_camera_index(cfg, chosen)
+        save_config(cfg)
+        camera_index = chosen
+
+    # Open camera + pose detector in a background thread, show loading screen meanwhile.
+    _cap_box: list = [None]
+    _det_box: list = [None]
+    _init_error_box: list[bool] = [False]
+
+    def _do_init() -> None:
+        c = Capture(device_index=camera_index)
+        d = PoseDetector(model_path=resource_path("assets/pose_landmarker_lite.task"))
+        if c.open() and d.open():
+            _cap_box[0] = c
+            _det_box[0] = d
+        else:
+            if c.is_open():
+                c.release()
+            _init_error_box[0] = True
+
+    _init_thread = threading.Thread(target=_do_init, daemon=True)
+    _init_thread.start()
+
+    # Loading screen — animate while camera initialises
+    while _init_thread.is_alive():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        screen.fill((10, 10, 20))
+
+        title_surf = font_title.render("Corpography — Template Editor", True, (180, 180, 255))
+        screen.blit(title_surf, (WINDOW_W // 2 - title_surf.get_width() // 2, WINDOW_H // 2 - 80))
+
+        msg_surf = font_b.render("Initializing camera...", True, (160, 160, 160))
+        screen.blit(msg_surf, (WINDOW_W // 2 - msg_surf.get_width() // 2, WINDOW_H // 2 - 20))
+
+        # Dot spinner — 8 dots in a ring, trailing brightness
+        now = pygame.time.get_ticks()
+        cx, cy = WINDOW_W // 2, WINDOW_H // 2 + 60
+        for i in range(8):
+            angle = math.radians(i * 45) - (now / 1000.0) * 2 * math.pi
+            dx = int(math.cos(angle) * 28)
+            dy = int(math.sin(angle) * 28)
+            brightness = max(40, 255 - i * 28)
+            dot_size = 5 if i == 0 else (4 if i < 4 else 3)
+            pygame.draw.circle(screen, (brightness, brightness, 255), (cx + dx, cy + dy), dot_size)
+
+        pygame.display.flip()
+        clock.tick(30)
+
+    _init_thread.join()
+    cap: Capture | None = _cap_box[0]
+    detector: PoseDetector | None = _det_box[0]
+
+    # Camera failed to open — let the user pick another one.
+    if _init_error_box[0]:
+        chosen = run_camera_select(
+            screen, clock, _cam_fonts,
+            initial_index=camera_index,
+            error_message=f"Camera {camera_index} not found. Please select another.",
+        )
+        if chosen is None:
+            pygame.quit()
+            sys.exit(0)
+        cfg = set_camera_index(cfg, chosen)
+        save_config(cfg)
+        camera_index = chosen
+
+        # Re-initialize synchronously (loading screen already shown).
+        screen.fill((10, 10, 20))
+        reinit_surf = font_b.render("Reinitializing...", True, (160, 160, 160))
+        screen.blit(reinit_surf, (WINDOW_W // 2 - reinit_surf.get_width() // 2, WINDOW_H // 2 - 12))
+        pygame.display.flip()
+
+        cap = Capture(device_index=camera_index)
+        detector = PoseDetector(model_path=resource_path("assets/pose_landmarker_lite.task"))
+        if not cap.open() or not detector.open():
+            screen.fill((10, 10, 20))
+            err_surf = font_b.render("Failed to open selected camera.", True, (220, 0, 0))
+            screen.blit(err_surf, (WINDOW_W // 2 - err_surf.get_width() // 2, WINDOW_H // 2 - 12))
+            pygame.display.flip()
+            pygame.time.wait(3000)
+            pygame.quit()
+            sys.exit(1)
 
     def _close_recording():
         nonlocal cap, detector
@@ -943,25 +1054,7 @@ def main() -> None:
                 }
                 manual_dragging = None
 
-            if state == EditorState.SCORING:
-                # Open camera and detector
-                from capture import Capture
-                from pose import PoseDetector
-                cap = Capture(device_index=0)
-                if not cap.open():
-                    model.error_message = "No camera found."
-                    cap = None
-                    state = EditorState.EDITING
-                else:
-                    model_file = resource_path("assets/pose_landmarker_lite.task")
-                    detector = PoseDetector(model_path=model_file)
-                    if not detector.open():
-                        model.error_message = "Pose model not found."
-                        cap.release(); cap = None
-                        detector = None
-                        state = EditorState.EDITING
-
-            elif state == EditorState.SAVE_CONFIRM:
+            if state == EditorState.SAVE_CONFIRM:
                 confirm_start_ms = pygame.time.get_ticks()
 
             elif state == EditorState.LETTER_SELECT:
@@ -970,13 +1063,15 @@ def main() -> None:
                 model = None
 
         elif state == EditorState.SCORING:
-            assert model is not None and cap is not None and detector is not None
-            state, d_max, capture_flash_ms = _handle_scoring(
-                screen, model, cap, detector, events,
-                font_score, font_b, font_s, timestamp_ms, d_max, capture_flash_ms
-            )
-            if state == EditorState.EDITING:
-                _close_recording()
+            assert model is not None
+            if cap is None or detector is None:
+                model.error_message = "Camera not available."
+                state = EditorState.EDITING
+            else:
+                state, d_max, capture_flash_ms, show_video = _handle_scoring(
+                    screen, model, cap, detector, events,
+                    font_score, font_b, font_s, timestamp_ms, d_max, capture_flash_ms, show_video,
+                )
 
         elif state == EditorState.SCORING_MANUAL:
             assert model is not None
